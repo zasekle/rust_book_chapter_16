@@ -1,3 +1,4 @@
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -10,6 +11,7 @@ fn main() {
     // concurrent is used instead of concurrent and/or parallel.
 
     using_threads_to_run_code_simultaneously();
+    using_message_passing_to_transfer_data_between_threads();
 }
 
 fn using_threads_to_run_code_simultaneously() {
@@ -48,3 +50,49 @@ fn using_threads_to_run_code_simultaneously() {
 
     move_handle.join().expect("move_handle crashed");
 }
+
+fn using_message_passing_to_transfer_data_between_threads() {
+    //Rust provides channels to communicate between threads. I have used channels in Kotlin, but
+    // I don't have nearly as intuitive understanding of them as I do of memory sharing in general.
+    // Channels only work in one direction. They have two halves, the transmitter which transmits
+    // data and the receiver which receives data.
+
+    //The abbreviations `tx` and `rx` are traditionally used in many fields for transmitter and
+    // receiver respectively.
+    let (tx, rx) = mpsc::channel();
+
+    //The transmitter can be cloned if multiple are needed. The receiver cannot be cloned.
+    let tx1 = tx.clone();
+
+    thread::spawn(move || {
+        let hello = "hello";
+
+        //If the receiver has already been dropped, this will return an error.
+        tx.send(hello).expect("Failed to send");
+    });
+
+    thread::spawn(move || {
+        let multiple = vec![
+            "channels",
+            "are",
+            "fun",
+        ];
+
+        for val in multiple {
+            tx1.send(val).expect("Failed to send on tx1");
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+
+    //There is a blocking and a non blocking method here with the receiver. try_recv() is
+    // non-blocking and recv() is blocking.
+    // let received = rx.recv().expect("Failed to receive");
+    // println!("received: {received}");
+
+    //This seems to be syntactic sugar to block until everything is received (I assume it ends when
+    // all transmitters have gone out of scope).
+    for val in rx {
+        println!("val: {val}");
+    }
+}
+
