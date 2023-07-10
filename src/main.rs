@@ -1,4 +1,5 @@
-use std::sync::mpsc;
+use std::ops::Add;
+use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -12,6 +13,7 @@ fn main() {
 
     using_threads_to_run_code_simultaneously();
     using_message_passing_to_transfer_data_between_threads();
+    shared_state_concurrency();
 }
 
 fn using_threads_to_run_code_simultaneously() {
@@ -80,7 +82,7 @@ fn using_message_passing_to_transfer_data_between_threads() {
 
         for val in multiple {
             tx1.send(val).expect("Failed to send on tx1");
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_millis(300));
         }
     });
 
@@ -96,3 +98,49 @@ fn using_message_passing_to_transfer_data_between_threads() {
     }
 }
 
+fn shared_state_concurrency() {
+    //This section is about shared memory. This is in contrast to the channels used above.
+
+    //The mutex here isn't an object that I lock and unlock like I think about in most languages.
+    // It is essentially a wrapper around a value. So the mutex itself works a bit differently
+    // than I am used to.
+    let m = Mutex::new(5);
+    {
+        //This will panic if the lock is already held by this thread. Otherwise it will block until
+        // it can acquire the lock.
+        //This returns a MutexGuard which is a smart pointer and represents the lock. When it goes
+        // out of scope, the mutex will unlock.
+        let mut value = m.lock().unwrap();
+        *value += 1;
+    }
+
+    println!("m: {:?}", m);
+
+    //The way to use a mutex across multiple threads is with the Arc<T> object. This is the same
+    // as the Rc<T> object except that internally it uses an atomic reference counter while Rc<T>
+    // does not.
+    let shared = Arc::new(Mutex::new(String::from("1")));
+    let mut threads = vec![];
+
+    for i in 0u8..10u8 {
+        let next_mutex = Arc::clone(&shared);
+        threads.push(
+            thread::spawn(move || {
+                let mut string = next_mutex.lock().unwrap();
+                string.push(('a' as u8 + i) as char);
+            })
+        );
+    }
+
+    for thread in threads {
+        thread.join().expect("Failed at threads");
+    }
+
+    let final_state = shared.lock().unwrap();
+    println!("final_state: {}", *final_state);
+
+    //Conceptually it is worth noting that Mutex<T> along with Arc<T> has a lot of similarities to
+    // RefCell<T> along with Rc<T>. Mutex<T> has interior mutability just like RefCell<T>, it also
+    // has some of the same problems. Just like RefCell<T> has reference cycles, Mutex<T> has
+    // deadlocks.
+}
