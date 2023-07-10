@@ -14,6 +14,7 @@ fn main() {
     using_threads_to_run_code_simultaneously();
     using_message_passing_to_transfer_data_between_threads();
     shared_state_concurrency();
+    extensibility_concurrency_with_the_sync_and_send_traits();
 }
 
 fn using_threads_to_run_code_simultaneously() {
@@ -143,4 +144,22 @@ fn shared_state_concurrency() {
     // RefCell<T> along with Rc<T>. Mutex<T> has interior mutability just like RefCell<T>, it also
     // has some of the same problems. Just like RefCell<T> has reference cycles, Mutex<T> has
     // deadlocks.
+}
+
+fn extensibility_concurrency_with_the_sync_and_send_traits() {
+    //The language Rust itself has very few concurrency features. Most of the concurrency features
+    // are actually part of the standard library. This is possible because Rust two gives Traits
+    // that allow for implementing these features.
+    // 1) std::marker::Send; This indicates that the type can be transferred between threads. This
+    //  is implemented for almost all Rust built in types, Rc<T> is an exception.
+    // 2) std::marker::Sync; This indicates that the type can be referenced from multiple threads
+    //  at the same time. For example, `let m = 5` means that &m can be used from multiple threads
+    //  simultaneously.
+
+    //It is also worth noting that if a type is comprised of types implementing Send and/or Sync,
+    // the type will also be Send and/or Sync.
+
+    //It seems to be rather difficult to implement Send or Sync myself and it requires unsafe Rust
+    // code. This makes sense because I can't see any way that the borrow checker could enforce
+    // that say a custom shared lock could work.
 }
